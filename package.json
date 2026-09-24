@@ -1,0 +1,21 @@
+{
+  "name": "cf_threejs",
+  "version": "1.0.0",
+  "description": "以 low-poly 艺术沙盘呈现内蒙古赤峰市全域：地形、水系、十二旗县区与廿二处胜景。   参考 `example` 中「数字西湖」的交互三维沙盘思路，适配移动端，支持**分级 / 分地区 / 景点**浏览。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "example",
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.63.0"
+  }
+}

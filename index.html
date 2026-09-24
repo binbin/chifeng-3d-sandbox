@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#e9eee6">
+<title>赤峰 3D 沙盘 · 可交互三维全景</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="canvas-wrap"></div>
+<div id="label-layer"></div>
+
+<div id="ui-root">
+  <header id="title-bar" class="panel">
+    <div class="brand">
+      <span class="dot"></span>
+      <span class="eyebrow">CHIFENG · SPATIAL SANDBOX</span>
+    </div>
+    <h1>赤峰沙盘</h1>
+    <p class="sub">一市山河，十二旗县。</p>
+  </header>
+
+  <nav id="level-bar" class="panel"></nav>
+
+  <div id="theme-switch" class="panel">
+    <button class="theme-btn active" id="theme-day" data-theme="day">☀ 晴昼</button>
+    <button class="theme-btn" id="theme-sunset" data-theme="sunset">🌇 日落</button>
+    <button class="theme-btn" id="theme-night" data-theme="night">☾ 夜游</button>
+  </div>
+
+  <aside id="sidebar" class="panel collapsed">
+    <div class="side-head">
+      <b>从这里出发</b>
+      <span class="count">12 旗县 · 22 景点</span>
+    </div>
+    <div id="tab-switch" class="filter-row">
+      <button class="chip active" data-tab="districts">分地区</button>
+      <button class="chip" data-tab="spots">景点</button>
+    </div>
+    <div id="tab-districts"></div>
+    <div id="tab-spots"></div>
+    <div class="side-foot">点击旗县 / 景点可飞行抵达 · H 全景 · U 隐界面</div>
+  </aside>
+
+  <section id="card" class="panel hidden">
+    <button id="card-close" title="关闭">×</button>
+    <div class="card-hero" id="card-hero"></div>
+    <div class="card-no" id="card-no"></div>
+    <h2 id="card-name"></h2>
+    <div class="card-en" id="card-en"></div>
+    <p class="card-desc" id="card-desc"></p>
+    <div class="card-chips" id="card-chips"></div>
+    <div class="card-actions" id="card-actions">
+      <button id="card-closein" class="btn-primary">近景细看</button>
+      <button id="card-orbit" class="btn-ghost">环绕此处</button>
+    </div>
+    <div class="card-meta"><span id="card-tag"></span> · 程序化沙盘 · 艺术化比例</div>
+  </section>
+
+  <nav id="toolbar" class="panel">
+    <button id="tb-overview" title="全景（H）"><span>⌂</span><i>全景</i></button>
+    <button id="tb-orbit" title="自动环绕"><span>◎</span><i>环绕</i></button>
+    <button id="tb-tour" title="景点漫游"><span>▷</span><i>漫游</i></button>
+    <button id="tb-top" title="俯视地图"><span>▤</span><i>俯视</i></button>
+    <button id="tb-list" title="列表"><span>☰</span><i>列表</i></button>
+    <button id="tb-photo" title="拍照导出 PNG"><span>📷</span><i>拍照</i></button>
+    <button id="tb-full" title="全屏"><span>⛶</span><i>全屏</i></button>
+  </nav>
+
+  <div id="hint" class="panel">拖动 <b>旋转</b>　·　滚轮/双指 <b>缩放</b>　·　点击旗县景点 <b>飞过去</b></div>
+
+  <div id="zoom-ctrl" class="panel">
+    <button id="zoom-in">＋</button>
+    <button id="zoom-out">－</button>
+  </div>
+
+  <div id="compass" class="panel"><div class="needle" id="compass-needle"></div><span>N</span></div>
+
+  <div id="minimap-wrap" class="panel">
+    <div class="mm-title">区域导航</div>
+    <canvas id="minimap" width="168" height="110"></canvas>
+  </div>
+
+  <footer id="footnote" class="panel">THREE.JS · 离线沙盘 — 艺术化地理布局，非测绘级地图</footer>
+</div>
+
+<div id="intro">
+  <div class="intro-card">
+    <div class="intro-eyebrow">CHIFENG · INNER MONGOLIA · SPATIAL SANDBOX</div>
+    <h1>赤峰沙盘</h1>
+    <p class="intro-sub">一市山河 · 十二旗县 · 廿二胜景</p>
+    <p class="intro-desc">
+      以低多边形艺术沙盘呈现赤峰全域：大兴安岭南段、浑善达克沙地、西拉木伦河与老哈河谷，
+      克什克腾石林与达里诺尔，辽上京与红山文化……<br>
+      支持分级浏览（全市 → 旗县 → 景点）、分地区筛选与景点导航，适配手机与桌面。
+    </p>
+    <button id="enter-btn">进入赤峰 →</button>
+    <div class="intro-tip">建议 Chrome / Edge · 可离线运行 · 移动端支持触控</div>
+  </div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script src="lib/OrbitControls.js"></script>
+<script src="js/boundaries.js"></script>
+<script src="js/data.js"></script>
+<script src="js/terrain.js"></script>
+<script src="js/world.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

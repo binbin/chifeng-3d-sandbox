@@ -1,0 +1,7 @@
+node_modules/
+scripts/out/
+refs/
+example/
+test-results/
+*.log
+.DS_Store
