@@ -5,3 +5,4 @@ example/
 test-results/
 *.log
 .DS_Store
+promo/.venv/

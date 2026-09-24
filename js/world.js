@@ -49,8 +49,35 @@ var World = (function () {
     div.className = 'w-label ' + (opts.className || '');
     div.textContent = text;
     if (opts.size) div.style.fontSize = opts.size;
+    if (opts.clickable) {
+      div.classList.add('clickable');
+      div.setAttribute('role', 'button');
+      div.tabIndex = 0;
+      div.setAttribute('aria-label', '前往' + text);
+      var fire = function () {
+        if (opts.onClick) opts.onClick();
+      };
+      div.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fire();
+      });
+      div.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          fire();
+        }
+      });
+    }
     document.getElementById('label-layer').appendChild(div);
-    var item = { el: div, pos: opts.pos.clone ? opts.pos.clone() : new THREE.Vector3(opts.pos[0], opts.pos[1], opts.pos[2]), minDist: opts.minDist || 0, maxDist: opts.maxDist || 1e9, level: opts.level || 0, adcode: opts.adcode || 0 };
+    var item = {
+      el: div,
+      pos: opts.pos.clone ? opts.pos.clone() : new THREE.Vector3(opts.pos[0], opts.pos[1], opts.pos[2]),
+      minDist: opts.minDist || 0,
+      maxDist: opts.maxDist || 1e9,
+      level: opts.level || 0,
+      adcode: opts.adcode || 0,
+      spotId: opts.spotId || null
+    };
     labels.push(item);
     return item;
   }
@@ -167,7 +194,12 @@ var World = (function () {
         pos: new THREE.Vector3(cxz[0], cy, cxz[1]),
         className: 'lbl-district',
         maxDist: 1200,
-        minDist: 0
+        minDist: 0,
+        adcode: d.adcode,
+        clickable: true,
+        onClick: function () {
+          if (typeof UI !== 'undefined') UI.emit('selectDistrict', d.adcode);
+        }
       });
       g.userData.labelPos = new THREE.Vector3(cxz[0], cy, cxz[1]);
       world.add(g);
@@ -525,8 +557,31 @@ var World = (function () {
         pos: new THREE.Vector3(xz[0], y + 7.5, xz[1]),
         className: 'lbl-spot',
         maxDist: 520,
-        adcode: s.adcode
+        adcode: s.adcode,
+        spotId: s.id,
+        clickable: true,
+        onClick: function () {
+          if (typeof UI !== 'undefined') UI.emit('selectSpot', s.id);
+        }
       });
+    });
+  }
+
+  var selectedSpotId = null;
+  function selectSpot(id) {
+    selectedSpotId = id || null;
+    labels.forEach(function (L) {
+      if (!L.spotId) return;
+      L.el.classList.toggle('selected', L.spotId === selectedSpotId);
+    });
+    Object.keys(spotNodes).forEach(function (sid) {
+      var n = spotNodes[sid];
+      var on = sid === selectedSpotId;
+      if (n.pin && n.pin.userData.pinHead) {
+        n.pin.scale.setScalar(on ? 1.7 : 1.35);
+      } else if (n.pin) {
+        n.pin.scale.setScalar(on ? 1.7 : 1.35);
+      }
     });
   }
 
@@ -658,6 +713,7 @@ var World = (function () {
     setTheme: setTheme,
     updateLabels: updateLabels,
     highlightDistrict: highlightDistrict,
+    selectSpot: selectSpot,
     focusDistrict: focusDistrict,
     focusSpot: focusSpot,
     getOverview: getOverview,

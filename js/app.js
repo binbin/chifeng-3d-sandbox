@@ -17,6 +17,7 @@ var currentTheme = 'day';
 var PALETTES = {
   day: {
     _key: 'day',
+    themeColor: '#e9eee6',
     skyTop: '#b7d4ce', skyBottom: '#f0ecd8',
     fog: '#cfdcc8', fogNear: 560, fogFar: 2100,
     hemiSky: '#c8e0d8', hemiGround: '#b8ad7c', hemiI: 0.38,
@@ -25,6 +26,7 @@ var PALETTES = {
   },
   sunset: {
     _key: 'sunset',
+    themeColor: '#efd5b4',
     skyTop: '#e8b888', skyBottom: '#f7e0c0',
     fog: '#efd5b4', fogNear: 440, fogFar: 1750,
     hemiSky: '#f0d0ae', hemiGround: '#c2a678', hemiI: 0.48,
@@ -33,6 +35,7 @@ var PALETTES = {
   },
   night: {
     _key: 'night',
+    themeColor: '#0d1828',
     skyTop: '#08101f', skyBottom: '#1a2f4d',
     fog: '#0d1828', fogNear: 460, fogFar: 1900,
     hemiSky: '#3d5a82', hemiGround: '#243447', hemiI: 0.46,
@@ -169,14 +172,21 @@ function captureThemeState() {
   };
 }
 
+function syncThemeColor(pal) {
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', pal.themeColor || pal.skyBottom);
+}
+
 function setTheme(name) {
   var pal = PALETTES[name] || PALETTES.day;
   currentTheme = name;
   // 天空贴图先切，避免开场动画期间无贴图；灯光再插值过渡
   paintSky(pal);
-  themeAnim = { t: 0, dur: 0.55, from: captureThemeState(), pal: pal };
+  var dur = UI.prefersReducedMotion() ? 0.05 : 0.55;
+  themeAnim = { t: 0, dur: dur, from: captureThemeState(), pal: pal };
   World.setTheme(pal);
   document.body.style.background = pal.skyBottom;
+  syncThemeColor(pal);
 }
 
 function updateThemeAnim(dt) {
@@ -215,6 +225,15 @@ function clearOrbitTimer() {
 
 function flyTo(pos, target, duration, arc) {
   clearOrbitTimer();
+  if (UI.prefersReducedMotion()) {
+    camera.position.copy(pos);
+    controls.target.copy(target);
+    fly = null;
+    controls.autoRotate = false;
+    autoOrbit = false;
+    UI.setToolbarActive('tb-orbit', false);
+    return;
+  }
   var dist = camera.position.distanceTo(pos);
   var base = duration || 1.4;
   // 时长随距离伸缩：短跳利落、长距从容
@@ -231,6 +250,16 @@ function flyTo(pos, target, duration, arc) {
   controls.autoRotate = false;
   autoOrbit = false;
   UI.setToolbarActive('tb-orbit', false);
+}
+
+function resetNorth() {
+  var target = controls.target.clone();
+  var dist = camera.position.distanceTo(target);
+  var elev = camera.position.y - target.y;
+  var ground = Math.sqrt(Math.max(1, dist * dist - elev * elev));
+  var to = new THREE.Vector3(target.x, target.y + elev, target.z + ground);
+  flyTo(to, target, 0.85, 0);
+  UI.toast('已归北');
 }
 
 function updateFly(dt) {
@@ -250,6 +279,7 @@ function gotoCity() {
   UI.setLevel('city', { adcode: null, spotId: null });
   UI.hideCard();
   World.highlightDistrict(null);
+  World.selectSpot(null);
   flyTo(overviewCam.pos, overviewCam.target, 1.6, 0.1);
   tourOn = false;
   UI.setToolbarActive('tb-tour', false);
@@ -261,6 +291,7 @@ function gotoDistrict(adcode) {
   UI.setLevel('district', { adcode: adcode, spotId: null });
   UI.showDistrictCard(adcode);
   World.highlightDistrict(adcode);
+  World.selectSpot(null);
   flyTo(f.pos, f.target, 1.4, 0.12);
   UI.openSpotListTab();
 }
@@ -272,6 +303,7 @@ function gotoSpot(id) {
   UI.setLevel('spot', { adcode: f.adcode, spotId: id });
   if (s) UI.showSpotCard(s);
   World.highlightDistrict(f.adcode);
+  World.selectSpot(id);
   flyTo(f.pos, f.target, 1.5, 0.2);
 }
 
@@ -294,7 +326,11 @@ function bindUI() {
   UI.on('selectSpot', gotoSpot);
   UI.on('gotoCity', gotoCity);
   UI.on('gotoDistrict', gotoDistrict);
-  UI.on('theme', setTheme);
+  UI.on('theme', function (name) {
+    setTheme(name);
+    var labels = { day: '晴昼', sunset: '日落', night: '夜游' };
+    UI.toast(labels[name] || '主题已切换');
+  });
   UI.on('closeCard', function () {
     if (UI.getState().level === 'spot') {
       var ad = UI.getState().adcode;
@@ -305,7 +341,10 @@ function bindUI() {
     var id = UI.getState().spotId;
     if (!id) return;
     var f = World.focusSpot(id);
-    if (f) flyTo(f.close, f.target, 1.1, 0.05);
+    if (f) {
+      flyTo(f.close, f.target, 1.1, 0.05);
+      UI.toast('近景');
+    }
   });
   UI.on('orbit', function () {
     var id = UI.getState().spotId;
@@ -320,17 +359,20 @@ function bindUI() {
       n.anchor, 1.0, 0
     );
     clearOrbitTimer();
+    var delay = UI.prefersReducedMotion() ? 50 : 1100;
     orbitTimer = setTimeout(function () {
       orbitTimer = null;
       controls.autoRotate = true;
       autoOrbit = true;
       UI.setToolbarActive('tb-orbit', true);
-    }, 1100);
+      UI.toast('环绕中');
+    }, delay);
   });
   UI.on('autoOrbit', function () {
     autoOrbit = !autoOrbit;
     controls.autoRotate = autoOrbit;
     UI.setToolbarActive('tb-orbit', autoOrbit);
+    UI.toast(autoOrbit ? '自动环绕开启' : '已停止环绕');
   });
   UI.on('tour', function () {
     tourOn = !tourOn;
@@ -341,11 +383,27 @@ function bindUI() {
       controls.autoRotate = false;
       autoOrbit = false;
       UI.setToolbarActive('tb-orbit', false);
+      UI.toast('漫游已结束');
+    } else {
+      UI.toast('景点漫游开始');
+      if (!fly) {
+        var list = SPOTS;
+        if (UI.getState().adcode) {
+          list = spotsByAdcode(UI.getState().adcode);
+          if (!list.length) list = SPOTS;
+        }
+        if (list.length) {
+          gotoSpot(list[0].id);
+          tourIdx = 1 % list.length;
+        }
+      }
     }
   });
   UI.on('topView', function () {
     flyTo(overviewCam.top, overviewCam.target, 1.5, 0.05);
+    UI.toast('俯视');
   });
+  UI.on('resetNorth', resetNorth);
   UI.on('zoom', function (delta) {
     var dir = camera.position.clone().sub(controls.target);
     var len = dir.length() * (1 + delta);
