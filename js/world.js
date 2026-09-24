@@ -82,7 +82,11 @@ var World = (function () {
     return item;
   }
 
-  function buildBounds() {
+  var CORE_PAD_DEG = 0.06;
+  // 市界外扩一圈空白地貌，边缘旗县朝外不再「出界见空」
+  var TERRAIN_MARGIN_DEG = 1.21;
+
+  function computeDistrictLonLatExtent() {
     var minLon = 180, minLat = 90, maxLon = -180, maxLat = -90;
     CF_DISTRICTS.forEach(function (d) {
       d.rings.forEach(function (ring) {
@@ -94,12 +98,38 @@ var World = (function () {
         });
       });
     });
-    return { minLon: minLon - 0.05, maxLon: maxLon + 0.05, minLat: minLat - 0.05, maxLat: maxLat + 0.05 };
+    return { minLon: minLon, maxLon: maxLon, minLat: minLat, maxLat: maxLat };
+  }
+
+  /** 赤峰核心范围：全景机位仍对准市域，不因外扩地形拉开 */
+  function buildCoreBounds() {
+    var extent = computeDistrictLonLatExtent();
+    return {
+      minLon: extent.minLon - CORE_PAD_DEG,
+      maxLon: extent.maxLon + CORE_PAD_DEG,
+      minLat: extent.minLat - CORE_PAD_DEG,
+      maxLat: extent.maxLat + CORE_PAD_DEG
+    };
+  }
+
+  /** 地形网格范围：含周边空地 */
+  function buildTerrainBounds() {
+    var extent = computeDistrictLonLatExtent();
+    return {
+      minLon: extent.minLon - TERRAIN_MARGIN_DEG,
+      maxLon: extent.maxLon + TERRAIN_MARGIN_DEG,
+      minLat: extent.minLat - TERRAIN_MARGIN_DEG,
+      maxLat: extent.maxLat + TERRAIN_MARGIN_DEG
+    };
+  }
+
+  function buildBounds() {
+    return buildCoreBounds();
   }
 
   function buildTerrain() {
-    var bound = buildBounds();
-    var segs = isMobile() ? 140 : 200;
+    var bound = buildTerrainBounds();
+    var segs = isMobile() ? 160 : 230;
     var grid = Terrain.buildGrid(bound, segs);
     var mat = reg(new THREE.MeshStandardMaterial({
       vertexColors: true, roughness: 0.95, flatShading: true
@@ -109,7 +139,7 @@ var World = (function () {
     mesh.name = 'terrain';
     world.add(mesh);
     clickable.push(mesh);
-    return { mesh: mesh, bound: bound };
+    return { mesh: mesh, bound: bound, core: buildCoreBounds() };
   }
 
   function isMobile() {
@@ -348,6 +378,7 @@ var World = (function () {
     for (var i = 0; i < count * 3 && n < count; i++) {
       var lon = 116.6 + Math.random() * 3.8;
       var lat = 41.4 + Math.random() * 3.5;
+      if (!districtAt(lon, lat)) continue;
       var elev = Terrain.elevationMeters(lon, lat);
       // 多集中在山地
       if (elev < 900 || elev > 1850) continue;
@@ -775,7 +806,7 @@ var World = (function () {
   }
 
   function getOverview() {
-    var bound = buildBounds();
+    var bound = buildCoreBounds();
     var c0 = XY((bound.minLon + bound.maxLon) / 2, (bound.minLat + bound.maxLat) / 2);
     var y = Terrain.heightAtWorld(c0[0], c0[1]);
     return {

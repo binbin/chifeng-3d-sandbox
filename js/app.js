@@ -22,7 +22,7 @@ var PALETTES = {
     _key: 'day',
     themeColor: '#e9eee6',
     skyTop: '#b7d4ce', skyBottom: '#f0ecd8',
-    fog: '#cfdcc8', fogNear: 560, fogFar: 2100,
+    fog: '#cfdcc8', fogNear: 620, fogFar: 2600,
     hemiSky: '#c8e0d8', hemiGround: '#b8ad7c', hemiI: 0.38,
     sun: '#fff0cc', sunI: 0.92, amb: '#ffffff', ambI: 0.07,
     sunPos: [120, 180, 80]
@@ -31,7 +31,7 @@ var PALETTES = {
     _key: 'sunset',
     themeColor: '#efd5b4',
     skyTop: '#e8b888', skyBottom: '#f7e0c0',
-    fog: '#efd5b4', fogNear: 440, fogFar: 1750,
+    fog: '#efd5b4', fogNear: 500, fogFar: 2300,
     hemiSky: '#f0d0ae', hemiGround: '#c2a678', hemiI: 0.48,
     sun: '#ff9d55', sunI: 1.05, amb: '#ffdfc0', ambI: 0.14,
     sunPos: [-170, 55, 95]
@@ -40,7 +40,7 @@ var PALETTES = {
     _key: 'night',
     themeColor: '#0d1828',
     skyTop: '#08101f', skyBottom: '#1a2f4d',
-    fog: '#0d1828', fogNear: 460, fogFar: 1900,
+    fog: '#0d1828', fogNear: 520, fogFar: 2400,
     hemiSky: '#3d5a82', hemiGround: '#243447', hemiI: 0.46,
     sun: '#c4d8ff', sunI: 0.62, amb: '#4a6a96', ambI: 0.16,
     sunPos: [-110, 175, -70]
@@ -130,8 +130,8 @@ function buildLights() {
   sunLight.position.set(120, 180, 80);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(1024, 1024);
-  // 覆盖全域约 850×900，偏远旗县也要有影子
-  var s = 560, sh = sunLight.shadow.camera;
+  // 覆盖全域 + 周边空地阴影
+  var s = 720, sh = sunLight.shadow.camera;
   sh.left = -s; sh.right = s; sh.top = s; sh.bottom = -s; sh.near = 20; sh.far = 900;
   sunLight.shadow.bias = -0.0008;
   scene.add(sunLight);

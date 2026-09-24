@@ -67,6 +67,11 @@ var Terrain = (function () {
     h += bump(lon, lat, [118.2, 44.0], 0.55, 0.45) * 560;
     h += bump(lon, lat, [117.3, 43.1], 0.4, 0.3) * 480;
     h += bump(lon, lat, [118.45, 43.55], 0.3, 0.25) * 620; // 北大山
+    // 周边示意起伏（锡林郭勒 / 通辽 / 承德方向，无标注）
+    h += bump(lon, lat, [116.2, 43.9], 0.7, 0.55) * 420;
+    h += bump(lon, lat, [120.8, 43.6], 0.65, 0.5) * 280;
+    h += bump(lon, lat, [119.2, 40.9], 0.55, 0.4) * 520;
+    h += bump(lon, lat, [116.0, 42.4], 0.6, 0.45) * 360;
 
     // 七老图山 / 燕山北麓
     h += bump(lon, lat, [118.5, 41.85], 0.55, 0.4) * 780;
@@ -168,6 +173,7 @@ var Terrain = (function () {
   }
 
   var sandTint = null;
+  var outsideTint = null;
   function colorForHeight(col, meters, lon, lat) {
     // 河谷 → 草甸 → 高原草场 → 山地 → 岩峰
     if (meters < 480) {
@@ -198,6 +204,12 @@ var Terrain = (function () {
     }
     var n = (hash2(lon * 22, lat * 22) - 0.5) * 0.06;
     col.offsetHSL(0, 0, n);
+    // 市界外：降饱和作哑光周边，无标注内容
+    if (typeof districtAt === 'function' && !districtAt(lon, lat)) {
+      if (!outsideTint) outsideTint = new THREE.Color(0x9aa896);
+      col.offsetHSL(0.02, -0.28, -0.07);
+      col.lerp(outsideTint, 0.22);
+    }
   }
 
   /** 在世界坐标处采样高度（用于建筑落位） */
