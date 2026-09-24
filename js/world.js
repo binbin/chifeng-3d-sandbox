@@ -657,30 +657,120 @@ var World = (function () {
     });
   }
 
+  // 旗县世界包围盒：取景距离与软约束共用
+  var DISTRICT_PAD = 28;
+  var DISTRICT_FIT_MIN = 52;
+  var DISTRICT_FIT_MAX = 260;
+  var DISTRICT_HEIGHT_RATIO = 0.62;
+  var cityCenterXZ = null;
+
+  function ensureCityCenter() {
+    if (cityCenterXZ) return cityCenterXZ;
+    var ov = getOverview();
+    cityCenterXZ = { x: ov.target.x, z: ov.target.z };
+    return cityCenterXZ;
+  }
+
+  function districtWorldBounds(d) {
+    var minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+    for (var ri = 0; ri < d.rings.length; ri++) {
+      var ring = d.rings[ri];
+      for (var pi = 0; pi < ring.length; pi++) {
+        var xz = XY(ring[pi][0], ring[pi][1]);
+        if (xz[0] < minX) minX = xz[0];
+        if (xz[0] > maxX) maxX = xz[0];
+        if (xz[1] < minZ) minZ = xz[1];
+        if (xz[1] > maxZ) maxZ = xz[1];
+      }
+    }
+    var cx = (minX + maxX) * 0.5;
+    var cz = (minZ + maxZ) * 0.5;
+    var width = Math.max(8, maxX - minX);
+    var depth = Math.max(8, maxZ - minZ);
+    var span = Math.max(width, depth);
+    return {
+      minX: minX, maxX: maxX, minZ: minZ, maxZ: maxZ,
+      cx: cx, cz: cz, width: width, depth: depth, span: span
+    };
+  }
+
+  function softBoundsFromDistrict(bb) {
+    return {
+      minX: bb.minX - DISTRICT_PAD,
+      maxX: bb.maxX + DISTRICT_PAD,
+      minZ: bb.minZ - DISTRICT_PAD,
+      maxZ: bb.maxZ + DISTRICT_PAD
+    };
+  }
+
+  /** 从市中心外侧取景，朝内看旗县，避免边缘朝外看空地 */
+  function cameraFromInward(targetX, targetY, targetZ, distance) {
+    var city = ensureCityCenter();
+    var dx = targetX - city.x;
+    var dz = targetZ - city.z;
+    var len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 1) {
+      dx = 0.55;
+      dz = 0.84;
+      len = 1;
+    }
+    dx /= len;
+    dz /= len;
+    var elev = distance * DISTRICT_HEIGHT_RATIO;
+    return new THREE.Vector3(
+      targetX + dx * distance * 0.72,
+      targetY + elev,
+      targetZ + dz * distance * 0.72
+    );
+  }
+
   function focusDistrict(adcode) {
     var d = getDistrictByAdcode(adcode);
     if (!d) return null;
+    var bb = districtWorldBounds(d);
+    // 质心优先，避免凹形旗县 bbox 中心落在界外
     var cxz = XY(d.centroid[0], d.centroid[1]);
-    var y = Terrain.heightAtWorld(cxz[0], cxz[1]);
+    var tx = cxz[0];
+    var tz = cxz[1];
+    var y = Terrain.heightAtWorld(tx, tz);
+    var fit = bb.span * 0.95;
+    var dist = Math.max(DISTRICT_FIT_MIN, Math.min(DISTRICT_FIT_MAX, fit));
+    var target = new THREE.Vector3(tx, y + 4, tz);
+    var pos = cameraFromInward(tx, y, tz, dist);
     return {
-      target: new THREE.Vector3(cxz[0], y + 4, cxz[1]),
-      pos: new THREE.Vector3(cxz[0] + 68, y + 88, cxz[1] + 96),
+      target: target,
+      pos: pos,
       name: d.name,
-      adcode: adcode
+      adcode: adcode,
+      bounds: softBoundsFromDistrict(bb),
+      minDist: Math.max(16, dist * 0.22),
+      maxDist: Math.min(420, dist * 1.85)
     };
+  }
+
+  function getDistrictSoftBounds(adcode) {
+    var d = getDistrictByAdcode(adcode);
+    if (!d) return null;
+    return softBoundsFromDistrict(districtWorldBounds(d));
   }
 
   function focusSpot(id) {
     var n = spotNodes[id];
     if (!n) return null;
     var a = n.anchor;
+    var mid = cameraFromInward(a.x, a.y, a.z, 42);
+    var close = cameraFromInward(a.x, a.y, a.z, 22);
+    var soft = getDistrictSoftBounds(n.spot.adcode);
     return {
       target: a.clone(),
-      pos: new THREE.Vector3(a.x + 30, a.y + 24, a.z + 38),
-      close: new THREE.Vector3(a.x + 15, a.y + 12, a.z + 19),
+      pos: mid,
+      close: close,
       name: n.spot.name,
       id: id,
-      adcode: n.spot.adcode
+      adcode: n.spot.adcode,
+      bounds: soft,
+      minDist: 10,
+      maxDist: soft ? 160 : 220
     };
   }
 
@@ -716,6 +806,7 @@ var World = (function () {
     selectSpot: selectSpot,
     focusDistrict: focusDistrict,
     focusSpot: focusSpot,
+    getDistrictSoftBounds: getDistrictSoftBounds,
     getOverview: getOverview,
     getSpotNode: function (id) { return spotNodes[id]; },
     getClickable: function () { return clickable; },

@@ -11,6 +11,9 @@ var tourTimer = 0;
 var tourOn = false;
 var tourIdx = 0;
 var overviewCam = null;
+var camSoft = null;
+var CITY_MIN_DIST = 12;
+var CITY_MAX_DIST = 1600;
 var pointerDown = null, pointerMoved = false;
 var currentTheme = 'day';
 
@@ -223,6 +226,38 @@ function clearOrbitTimer() {
   }
 }
 
+function applyCamSoft(focus) {
+  if (!focus || !focus.bounds) {
+    camSoft = null;
+    controls.minDistance = CITY_MIN_DIST;
+    controls.maxDistance = CITY_MAX_DIST;
+    return;
+  }
+  camSoft = focus.bounds;
+  controls.minDistance = focus.minDist != null ? focus.minDist : 16;
+  controls.maxDistance = focus.maxDist != null ? focus.maxDist : 320;
+}
+
+function clampCamSoft() {
+  if (!camSoft || fly) return;
+  var target = controls.target;
+  var cx = Math.max(camSoft.minX, Math.min(camSoft.maxX, target.x));
+  var cz = Math.max(camSoft.minZ, Math.min(camSoft.maxZ, target.z));
+  if (cx !== target.x || cz !== target.z) {
+    target.x = cx;
+    target.z = cz;
+  }
+  // 相机相对 target 的水平距不超过 maxDistance，避免阻尼把机位甩出界
+  var offset = camera.position.clone().sub(target);
+  var horiz = Math.sqrt(offset.x * offset.x + offset.z * offset.z);
+  var maxH = controls.maxDistance * 0.98;
+  if (horiz > maxH && horiz > 0.01) {
+    var scale = maxH / horiz;
+    camera.position.x = target.x + offset.x * scale;
+    camera.position.z = target.z + offset.z * scale;
+  }
+}
+
 function flyTo(pos, target, duration, arc) {
   clearOrbitTimer();
   if (UI.prefersReducedMotion()) {
@@ -280,6 +315,7 @@ function gotoCity() {
   UI.hideCard();
   World.highlightDistrict(null);
   World.selectSpot(null);
+  applyCamSoft(null);
   flyTo(overviewCam.pos, overviewCam.target, 1.6, 0.1);
   tourOn = false;
   UI.setToolbarActive('tb-tour', false);
@@ -292,6 +328,7 @@ function gotoDistrict(adcode) {
   UI.showDistrictCard(adcode);
   World.highlightDistrict(adcode);
   World.selectSpot(null);
+  applyCamSoft(f);
   flyTo(f.pos, f.target, 1.4, 0.12);
   UI.openSpotListTab();
 }
@@ -304,6 +341,7 @@ function gotoSpot(id) {
   if (s) UI.showSpotCard(s);
   World.highlightDistrict(f.adcode);
   World.selectSpot(id);
+  applyCamSoft(f);
   flyTo(f.pos, f.target, 1.5, 0.2);
 }
 
@@ -534,6 +572,7 @@ function animate() {
   updateThemeAnim(dt);
   updateTour(dt);
   controls.update();
+  clampCamSoft();
   // 天空球跟随相机，拉远不穿帮
   if (skyMesh) skyMesh.position.copy(camera.position);
   var lvl = UI.getState().level;
