@@ -167,34 +167,36 @@ var Terrain = (function () {
     return { geometry: geo, heights: heights, nx: nx, nz: nz };
   }
 
+  var sandTint = null;
   function colorForHeight(col, meters, lon, lat) {
     // 河谷 → 草甸 → 高原草场 → 山地 → 岩峰
     if (meters < 480) {
-      col.setHex(0xc4b57a);
+      col.setHex(0xb8a45e);
     } else if (meters < 650) {
-      col.setHex(0xa8b86a);
+      col.setHex(0x8fa84a);
     } else if (meters < 950) {
-      col.setHex(0x7fa854);
+      col.setHex(0x5f9638);
     } else if (meters < 1300) {
-      col.setHex(0x4f8550);
+      col.setHex(0x3f7a3c);
     } else if (meters < 1650) {
-      col.setHex(0x3d6a48);
+      col.setHex(0x2c5c38);
     } else if (meters < 1950) {
-      col.setHex(0x6b7264);
+      col.setHex(0x5a6458);
     } else {
-      col.setHex(0xd8d4c4);
+      col.setHex(0xe4e0d2);
     }
     // 等高线明暗带（沙盘分层感）
     var band = Math.floor(meters / 150) % 2;
-    col.offsetHSL(0, 0, band ? 0.04 : -0.03);
+    col.offsetHSL(0, 0.02, band ? 0.05 : -0.05);
     // 沙地染黄
     var sand = smoothstep(43.8, 42.9, lat) * smoothstep(118.8, 117.2, lon) * smoothstep(42.3, 42.9, lat);
     var sand2 = smoothstep(42.4, 43.5, lat) * smoothstep(119.3, 120.3, lon);
     var s = clamp(sand + sand2 * 0.7, 0, 1);
     if (s > 0.12) {
-      col.lerp(new THREE.Color(0xd2b878), s * 0.7);
+      if (!sandTint) sandTint = new THREE.Color(0xc9a85a);
+      col.lerp(sandTint, s * 0.7);
     }
-    var n = (hash2(lon * 22, lat * 22) - 0.5) * 0.05;
+    var n = (hash2(lon * 22, lat * 22) - 0.5) * 0.06;
     col.offsetHSL(0, 0, n);
   }
 

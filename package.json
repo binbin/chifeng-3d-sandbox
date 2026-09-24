@@ -9,7 +9,8 @@
     "lib": "lib"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "verify": "node scripts/verify.mjs",
+    "test": "node scripts/verify.mjs"
   },
   "keywords": [],
   "author": "",

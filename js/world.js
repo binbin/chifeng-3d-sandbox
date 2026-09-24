@@ -50,7 +50,7 @@ var World = (function () {
     div.textContent = text;
     if (opts.size) div.style.fontSize = opts.size;
     document.getElementById('label-layer').appendChild(div);
-    var item = { el: div, pos: opts.pos.clone ? opts.pos.clone() : new THREE.Vector3(opts.pos[0], opts.pos[1], opts.pos[2]), minDist: opts.minDist || 0, maxDist: opts.maxDist || 1e9, level: opts.level || 0 };
+    var item = { el: div, pos: opts.pos.clone ? opts.pos.clone() : new THREE.Vector3(opts.pos[0], opts.pos[1], opts.pos[2]), minDist: opts.minDist || 0, maxDist: opts.maxDist || 1e9, level: opts.level || 0, adcode: opts.adcode || 0 };
     labels.push(item);
     return item;
   }
@@ -76,7 +76,7 @@ var World = (function () {
     var grid = Terrain.buildGrid(bound, segs);
     var mat = reg(new THREE.MeshStandardMaterial({
       vertexColors: true, roughness: 0.95, flatShading: true
-    }), 0xffffff, 0xe8dcc4, 0x5a6560);
+    }), 0xffffff, 0xe8dcc4, 0x2e3a44);
     var mesh = new THREE.Mesh(grid.geometry, mat);
     mesh.receiveShadow = true;
     mesh.name = 'terrain';
@@ -86,7 +86,7 @@ var World = (function () {
   }
 
   function isMobile() {
-    return window.innerWidth < 768 || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    return window.innerWidth <= 768 || window.innerHeight <= 500;
   }
 
   function ringToWorldXZ(ring) {
@@ -188,6 +188,7 @@ var World = (function () {
 
     // 河流
     RIVERS.forEach(function (r) {
+      if (!r.pts || r.pts.length < 2) return;
       var pts = r.pts.map(function (p) {
         var xz = XY(p[0], p[1]);
         return new THREE.Vector3(xz[0], Terrain.heightAtWorld(xz[0], xz[1]) + 0.15, xz[1]);
@@ -201,15 +202,18 @@ var World = (function () {
       world.add(tube);
       waterMeshes.push(tube);
       var mid = pts[Math.floor(pts.length / 2)];
-      makeLabel(r.name, {
-        pos: new THREE.Vector3(mid.x, mid.y + 2, mid.z),
-        className: 'lbl-river',
-        maxDist: 700
-      });
+      if (mid) {
+        makeLabel(r.name, {
+          pos: new THREE.Vector3(mid.x, mid.y + 2, mid.z),
+          className: 'lbl-river',
+          maxDist: 700
+        });
+      }
     });
 
     // 湖泊
     LAKES.forEach(function (lk) {
+      if (!lk.pts || lk.pts.length < 3) return;
       var shape = new THREE.Shape();
       var flat = lk.pts.map(function (p) {
         var xz = XY(p[0], p[1]);
@@ -331,16 +335,31 @@ var World = (function () {
     treeGroup.add(mesh);
   }
 
+  var landmarkMats = null;
+  function getLandmarkMats() {
+    if (landmarkMats) return landmarkMats;
+    landmarkMats = {
+      stone: reg(new THREE.MeshStandardMaterial({ color: 0xcfc7b0, roughness: 0.9, flatShading: true }), 0xcfc7b0, 0xd8c8a8, 0x6e7280),
+      stoneDark: reg(new THREE.MeshStandardMaterial({ color: 0x9a927c, roughness: 0.9, flatShading: true }), 0x9a927c, 0xa89470, 0x4a4e58),
+      red: reg(new THREE.MeshStandardMaterial({ color: 0x9c4a38, roughness: 0.7, flatShading: true }), 0x9c4a38, 0xb05538, 0x572d25),
+      gold: reg(new THREE.MeshStandardMaterial({ color: 0xd9b04f, roughness: 0.35, metalness: 0.5, flatShading: true }), 0xd9b04f, 0xe0b858, 0x8a7440),
+      roof: reg(new THREE.MeshStandardMaterial({ color: 0x314039, roughness: 0.65, flatShading: true }), 0x314039, 0x3a4538, 0x1a2220),
+      wall: reg(new THREE.MeshStandardMaterial({ color: 0xf0e4cd, roughness: 0.85, flatShading: true }), 0xf0e4cd, 0xf0e0c0, 0x5a6270),
+      sand: reg(new THREE.MeshStandardMaterial({ color: 0xd2c08a, roughness: 1, flatShading: true }), 0xd2c08a, 0xd8c488, 0x4a5060),
+      water: reg(new THREE.MeshStandardMaterial({ color: 0x3b8ac9, transparent: true, opacity: 0.85, roughness: 0.4 }), 0x3b8ac9, 0x4a7eb8, 0x123a5e),
+      grass: reg(new THREE.MeshStandardMaterial({ color: 0x8fad5c, flatShading: true }), 0x8fad5c, 0x9a9a50, 0x2e4030),
+      forest: reg(new THREE.MeshStandardMaterial({ color: 0x3d6b46, flatShading: true }), 0x3d6b46, 0x4a6b3a, 0x1e3324),
+      spring: reg(new THREE.MeshStandardMaterial({ color: 0x6ec4d8, flatShading: true }), 0x6ec4d8, 0x70b8c8, 0x2a5a78)
+    };
+    return landmarkMats;
+  }
+
   /** 简易地标造型 */
   function makeLandmarkModel(kind) {
     var g = new THREE.Group();
-    var stone = new THREE.MeshStandardMaterial({ color: 0xcfc7b0, roughness: 0.9, flatShading: true });
-    var stoneDark = new THREE.MeshStandardMaterial({ color: 0x9a927c, roughness: 0.9, flatShading: true });
-    var red = new THREE.MeshStandardMaterial({ color: 0x9c4a38, roughness: 0.7, flatShading: true });
-    var gold = new THREE.MeshStandardMaterial({ color: 0xd9b04f, roughness: 0.35, metalness: 0.5, flatShading: true });
-    var roof = new THREE.MeshStandardMaterial({ color: 0x314039, roughness: 0.65, flatShading: true });
-    var wall = new THREE.MeshStandardMaterial({ color: 0xf0e4cd, roughness: 0.85, flatShading: true });
-    var sand = new THREE.MeshStandardMaterial({ color: 0xd2c08a, roughness: 1, flatShading: true });
+    var M = getLandmarkMats();
+    var stone = M.stone, stoneDark = M.stoneDark, red = M.red, gold = M.gold;
+    var roof = M.roof, wall = M.wall, sand = M.sand;
 
     function add(mesh, x, y, z) {
       mesh.position.set(x || 0, y || 0, z || 0);
@@ -397,13 +416,12 @@ var World = (function () {
         break;
       }
       case 'lake': {
-        var water = new THREE.MeshStandardMaterial({ color: 0x3b8ac9, transparent: true, opacity: 0.85, roughness: 0.4 });
-        add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.12, 16), water), 0, 0.06, 0);
+        add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 0.12, 16), M.water), 0, 0.06, 0);
         add(new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.8, 5), stoneDark), 0.7, 0.4, 0.2);
         break;
       }
       case 'grass': {
-        add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.25, 10), new THREE.MeshStandardMaterial({ color: 0x8fad5c, flatShading: true })), 0, 0.12, 0);
+        add(new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.25, 10), M.grass), 0, 0.12, 0);
         add(new THREE.Mesh(new THREE.ConeGeometry(0.35, 0.7, 6), roof), 0, 0.5, 0);
         break;
       }
@@ -414,14 +432,14 @@ var World = (function () {
       }
       case 'forest': {
         for (var t = 0; t < 6; t++) {
-          add(new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.0, 5), new THREE.MeshStandardMaterial({ color: 0x3d6b46, flatShading: true })),
+          add(new THREE.Mesh(new THREE.ConeGeometry(0.28, 1.0, 5), M.forest),
             (Math.random() - 0.5) * 1.6, 0.5, (Math.random() - 0.5) * 1.6);
         }
         break;
       }
       case 'spring': {
         add(new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.9, 0.2, 12), stone), 0, 0.1, 0);
-        add(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 12), new THREE.MeshStandardMaterial({ color: 0x6ec4d8, flatShading: true })), 0, 0.22, 0);
+        add(new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.08, 12), M.spring), 0, 0.22, 0);
         add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.6), wall), 0.9, 0.25, 0.2);
         break;
       }
@@ -436,9 +454,23 @@ var World = (function () {
     return g;
   }
 
+  // 按类别色缓存，避免所有针共用第一支颜色
+  var pinMats = {};
   function makePin(color) {
     var g = new THREE.Group();
-    var mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.4, flatShading: true, emissive: color, emissiveIntensity: 0.15 });
+    var key = String(color);
+    var mat = pinMats[key];
+    if (!mat) {
+      var hex = new THREE.Color(color).getHex();
+      mat = reg(
+        new THREE.MeshStandardMaterial({
+          color: color, roughness: 0.4, flatShading: true,
+          emissive: color, emissiveIntensity: 0.15
+        }),
+        hex, hex, hex
+      );
+      pinMats[key] = mat;
+    }
     var head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 10), mat);
     head.position.y = 2.4;
     var stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 1.6, 6), mat);
@@ -482,7 +514,7 @@ var World = (function () {
 
       world.add(g);
       spotNodes[s.id] = { group: g, model: model, pin: pin, anchor: new THREE.Vector3(xz[0], y + 1.2, xz[1]), spot: s };
-      clickable.push(hit, model);
+      clickable.push(hit);
 
       model.traverse(function (o) {
         o.userData = { type: 'spot', id: s.id, spot: s };
@@ -492,12 +524,13 @@ var World = (function () {
       makeLabel(s.name, {
         pos: new THREE.Vector3(xz[0], y + 7.5, xz[1]),
         className: 'lbl-spot',
-        maxDist: 520
+        maxDist: 520,
+        adcode: s.adcode
       });
     });
   }
 
-  function updateLabels(camera, level) {
+  function updateLabels(camera, level, focusAdcode) {
     var cam = camera.position;
     var v = new THREE.Vector3();
     for (var i = 0; i < labels.length; i++) {
@@ -505,28 +538,49 @@ var World = (function () {
       var dist = cam.distanceTo(L.pos);
       var show = dist >= L.minDist && dist <= L.maxDist;
       if (L.el.classList.contains('lbl-spot')) {
-        show = show && (level === 'spot' || level === 'district' || dist < 380);
+        if (level === 'city') {
+          show = show && dist < 380;
+        } else if (focusAdcode && L.adcode && L.adcode !== focusAdcode) {
+          show = false; // 旗县/景点级只保留本旗县标签
+        }
       }
       if (L.el.classList.contains('lbl-district')) {
         show = show && (level !== 'spot' || dist < 500);
       }
       if (!show) {
-        L.el.style.opacity = '0';
-        L.el.style.visibility = 'hidden';
+        if (L._vis !== 0) {
+          L.el.style.opacity = '0';
+          L.el.style.visibility = 'hidden';
+          L._vis = 0;
+        }
         continue;
       }
       v.copy(L.pos).project(camera);
       if (v.z > 1) {
-        L.el.style.visibility = 'hidden';
+        if (L._vis !== 0) {
+          L.el.style.visibility = 'hidden';
+          L._vis = 0;
+        }
         continue;
       }
       var x = (v.x * 0.5 + 0.5) * window.innerWidth;
       var y = (-v.y * 0.5 + 0.5) * window.innerHeight;
-      L.el.style.transform = 'translate(-50%,-100%) translate(' + x + 'px,' + y + 'px)';
-      L.el.style.visibility = 'visible';
+      var tx = 'translate(-50%,-100%) translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)';
+      if (L._tx !== tx) {
+        L.el.style.transform = tx;
+        L._tx = tx;
+      }
+      if (L._vis !== 1) {
+        L.el.style.visibility = 'visible';
+        L._vis = 1;
+      }
       var op = 1;
       if (dist > (L.maxDist * 0.7)) op = 1 - (dist - L.maxDist * 0.7) / (L.maxDist * 0.3);
-      L.el.style.opacity = String(Math.max(0, Math.min(1, op)));
+      op = Math.max(0, Math.min(1, op));
+      if (L._op !== op) {
+        L.el.style.opacity = String(op);
+        L._op = op;
+      }
     }
   }
 
@@ -552,9 +606,10 @@ var World = (function () {
     var d = getDistrictByAdcode(adcode);
     if (!d) return null;
     var cxz = XY(d.centroid[0], d.centroid[1]);
+    var y = Terrain.heightAtWorld(cxz[0], cxz[1]);
     return {
-      target: new THREE.Vector3(cxz[0], Terrain.heightAtWorld(cxz[0], cxz[1]) + 4, cxz[1]),
-      pos: new THREE.Vector3(cxz[0] + 55, Terrain.heightAtWorld(cxz[0], cxz[1]) + 70, cxz[1] + 75),
+      target: new THREE.Vector3(cxz[0], y + 4, cxz[1]),
+      pos: new THREE.Vector3(cxz[0] + 68, y + 88, cxz[1] + 96),
       name: d.name,
       adcode: adcode
     };
@@ -566,8 +621,8 @@ var World = (function () {
     var a = n.anchor;
     return {
       target: a.clone(),
-      pos: new THREE.Vector3(a.x + 18, a.y + 14, a.z + 22),
-      close: new THREE.Vector3(a.x + 8, a.y + 7, a.z + 10),
+      pos: new THREE.Vector3(a.x + 30, a.y + 24, a.z + 38),
+      close: new THREE.Vector3(a.x + 15, a.y + 12, a.z + 19),
       name: n.spot.name,
       id: id,
       adcode: n.spot.adcode
@@ -579,9 +634,9 @@ var World = (function () {
     var c0 = XY((bound.minLon + bound.maxLon) / 2, (bound.minLat + bound.maxLat) / 2);
     var y = Terrain.heightAtWorld(c0[0], c0[1]);
     return {
-      target: new THREE.Vector3(c0[0], y + 10, c0[1] - 40),
-      pos: new THREE.Vector3(c0[0] + 110, y + 145, c0[1] + 255),
-      top: new THREE.Vector3(c0[0], y + 460, c0[1] + 10)
+      target: new THREE.Vector3(c0[0], y + 8, c0[1]),
+      pos: new THREE.Vector3(c0[0] + 165, y + 430, c0[1] + 500),
+      top: new THREE.Vector3(c0[0] + 4, y + 1080, c0[1] + 30)
     };
   }
 

@@ -138,7 +138,7 @@ var SPOT_CATS = {
 
 var SPOTS = [
   {
-    id: 'ashihaty', no: '01', name: '阿斯哈图石林', en: 'ARSHIHATY STONE FOREST',
+    id: 'ashihaty', no: '01', name: '阿斯哈图石林', en: 'ASHIHATU STONE FOREST',
     lon: 117.32, lat: 43.92, kind: 'stone', cat: 'geo', adcode: 150425, tag: '世界地质公园',
     desc: '克什克腾旗北部花岗岩石林，冰川与风化共同雕琢的“石柱森林”。柱体如城堡、如蘑菇、如书页，云雾中若仙山楼阁。',
     chips: ['花岗岩地貌', '冰缘石林', '摄影圣地']
@@ -264,7 +264,7 @@ var SPOTS = [
     chips: ['红山玉器', '辽文化', '免费参观']
   },
   {
-    id: 'wangfu_yunshan', no: '22', name: '白音敖包沙地云杉', en: 'BAIYIN Aobao SPRUCE FOREST',
+    id: 'wangfu_yunshan', no: '22', name: '白音敖包沙地云杉', en: 'BAIYIN ABAO SPRUCE FOREST',
     lon: 116.95, lat: 43.45, kind: 'forest', cat: 'nature', adcode: 150425, tag: '沙地神树',
     desc: '生长在沙地上的云杉林群落，被称作“沙漠绿珍珠”。根系锁住流沙，树形苍古，是荒原生态的奇迹样本。',
     chips: ['沙地云杉', '生态奇观', '摄影']

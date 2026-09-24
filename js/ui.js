@@ -21,7 +21,7 @@ var UI = (function () {
   }
 
   function isMobile() {
-    return window.innerWidth <= 768;
+    return window.innerWidth <= 768 || window.innerHeight <= 500;
   }
 
   function setLevel(level, opts) {
@@ -53,6 +53,7 @@ var UI = (function () {
         var act = b.getAttribute('data-act');
         if (act === 'city') emit('gotoCity');
         else if (act === 'district' && state.adcode) emit('gotoDistrict', state.adcode);
+        else if (act === 'spot' && state.spotId) emit('selectSpot', state.spotId);
       });
     });
   }
@@ -73,7 +74,7 @@ var UI = (function () {
 
   function renderDistrictList() {
     var box = $('tab-districts');
-    var html = '<div class="sec-title">旗县区分级</div>';
+    var html = '<div class="sec-title">旗县分级</div>';
     CF_DISTRICTS.forEach(function (d) {
       var info = DISTRICT_INFO[d.adcode] || {};
       var n = spotsByAdcode(d.adcode).length;
@@ -100,29 +101,34 @@ var UI = (function () {
     });
     filters += '</div>';
 
-    var list = SPOTS.filter(function (s) {
-      if (state.cat && s.cat !== state.cat) return false;
-      if (state.adcode && state.tabFilterDistrict) return s.adcode === state.adcode;
-      return true;
-    });
-
-    // 若当前在某旗县，优先显示该旗县景点
-    if (state.adcode) {
+    var inDistrict = !!state.adcode;
+    var list;
+    if (inDistrict) {
       list = SPOTS.filter(function (s) {
         if (state.cat && s.cat !== state.cat) return false;
         return s.adcode === state.adcode;
       });
       if (!list.length) {
+        inDistrict = false;
         list = SPOTS.filter(function (s) { return !state.cat || s.cat === state.cat; });
       }
+    } else {
+      list = SPOTS.filter(function (s) {
+        return !state.cat || s.cat === state.cat;
+      });
     }
 
-    var html = filters + '<div class="sec-title">' + (state.adcode ? '本旗县景点' : '全部景点') + ' · ' + list.length + '</div>';
-    list.forEach(function (s) {
+    var html = filters + '<div class="sec-title">' + (inDistrict ? '本旗县景点' : '全部景点') + ' · ' + list.length + '</div>';
+    if (!list.length) {
+      html += '<div class="empty-tip">该筛选下暂无景点</div>';
+    }
+    list.forEach(function (s, i) {
       var cat = SPOT_CATS[s.cat] || { label: '', color: '#888' };
       var d = getDistrictByAdcode(s.adcode);
+      var no = inDistrict ? String(i + 1) : s.no;
+      if (no.length < 2) no = '0' + no;
       html += '<div class="item' + (state.spotId === s.id ? ' active' : '') + '" data-id="' + s.id + '">' +
-        '<span class="no">' + s.no + '</span>' +
+        '<span class="no">' + no + '</span>' +
         '<div><div class="name">' + s.name + '</div>' +
         '<div class="meta">' + (d ? d.name : '') + ' · ' + cat.label + '</div></div></div>';
     });
@@ -142,11 +148,11 @@ var UI = (function () {
 
   function showSpotCard(s) {
     var card = $('card');
-    card.classList.remove('hidden', 'mode-district');
+    card.classList.remove('hidden', 'mode-district', 'compact');
     var cat = SPOT_CATS[s.cat] || { label: '', color: '#888' };
     var hero = $('card-hero');
     hero.className = 'card-hero ' + s.cat;
-    hero.textContent = cat.label + ' · ' + (s.tag || '');
+    hero.textContent = s.tag || cat.label;
     $('card-no').textContent = s.no + ' / CHIFENG SPATIAL SANDBOX';
     $('card-name').textContent = s.name;
     $('card-en').textContent = s.en;
@@ -155,8 +161,14 @@ var UI = (function () {
       return '<span>' + c + '</span>';
     }).join('');
     var d = getDistrictByAdcode(s.adcode);
-    $('card-tag').textContent = (d ? d.name : '') + ' · ' + (s.tag || '');
+    $('card-tag').textContent = (d ? d.name : '') + ' · ' + cat.label;
     $('card-actions').style.display = 'flex';
+    // 移动端：展开详情卡时收起底部列表，露出沙盘
+    if (isMobile()) {
+      var sb = $('sidebar');
+      sb.classList.remove('mobile-open');
+      sb.classList.add('collapsed');
+    }
   }
 
   function showDistrictCard(adcode) {
@@ -168,16 +180,16 @@ var UI = (function () {
     card.classList.add('mode-district');
     var hero = $('card-hero');
     hero.className = 'card-hero';
-    hero.textContent = info.en || 'DISTRICT';
+    hero.textContent = 'DISTRICT · ' + (info.short || d.name);
     $('card-no').textContent = 'DISTRICT / 赤峰市';
     $('card-name').textContent = d.name;
-    $('card-en').textContent = info.short || '';
+    $('card-en').textContent = info.en || '';
     $('card-desc').textContent = info.intro || '';
     var spots = spotsByAdcode(adcode);
     $('card-chips').innerHTML = spots.slice(0, 4).map(function (s) {
       return '<span>' + s.name + '</span>';
     }).join('');
-    $('card-tag').textContent = spots.length + ' 处景点 · 旗县区';
+    $('card-tag').textContent = spots.length + ' 处景点 · 旗县';
     $('card-actions').style.display = 'none';
     // 移动端：旗县卡保持短，避免挡住下方列表
     if (isMobile()) card.classList.add('compact');
@@ -280,7 +292,23 @@ var UI = (function () {
   }
 
   function setHintVisible(v) {
+    // 始终不拦截指针，避免挡住沙盘点击
     $('hint').style.opacity = v ? '1' : '0';
+  }
+
+  function setToolbarActive(id, on) {
+    var el = $(id);
+    if (el) el.classList.toggle('active', !!on);
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = $('toast');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.remove('show'); }, 1800);
   }
 
   function init() {
@@ -300,6 +328,8 @@ var UI = (function () {
     openSpotListTab: openSpotListTab,
     openDistrictListTab: openDistrictListTab,
     setHintVisible: setHintVisible,
+    setToolbarActive: setToolbarActive,
+    toast: toast,
     getState: function () { return state; }
   };
 })();

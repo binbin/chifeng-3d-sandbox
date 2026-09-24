@@ -9,10 +9,9 @@ body {
   background: #e9eee6;
   -webkit-font-smoothing: antialiased;
   user-select: none;
-  touch-action: none;
 }
 #canvas-wrap { position: fixed; inset: 0; }
-#canvas-wrap canvas { display: block; cursor: grab; }
+#canvas-wrap canvas { display: block; cursor: grab; touch-action: none; }
 #canvas-wrap canvas:active { cursor: grabbing; }
 #label-layer {
   position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5;
@@ -33,10 +32,10 @@ body {
 }
 .lbl-district { font-size: 13px; font-weight: 600; letter-spacing: 2px; }
 .lbl-city-main { font-size: 12px; color: #8b3a2a; font-weight: 600; }
-.lbl-peak { color: #5a6558; font-size: 10px; }
-.lbl-river { color: #2a6a9a; background: rgba(230,242,250,0.85); }
-.lbl-lake { color: #1f5f8f; font-weight: 600; }
-.lbl-spot { color: #7a3a20; background: rgba(255,248,235,0.95); }
+.lbl-peak { color: #455248; font-size: 10px; font-weight: 600; }
+.lbl-river { color: #1f5f8f; background: rgba(228,240,250,0.92); font-weight: 600; }
+.lbl-lake { color: #164f7c; font-weight: 600; }
+.lbl-spot { color: #6e3218; background: rgba(255,248,235,0.96); font-weight: 600; }
 
 #ui-root {
   position: fixed; inset: 0; pointer-events: none; z-index: 10;
@@ -52,6 +51,11 @@ body {
   border: 1px solid rgba(70, 95, 85, 0.12);
   box-shadow: 0 10px 34px rgba(53, 74, 66, 0.12);
   border-radius: 18px;
+  touch-action: pan-y;
+}
+#tab-districts, #tab-spots, #card {
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ---------------- 顶栏 ---------------- */
@@ -63,14 +67,14 @@ body {
 .brand { display: flex; align-items: center; gap: 8px; }
 .brand .dot { width: 7px; height: 7px; border-radius: 50%; background: #c9a227; }
 .brand .eyebrow {
-  font-size: 10px; letter-spacing: 3px; font-weight: 600; color: #8a6a2a;
+  font-size: 10px; letter-spacing: 3px; font-weight: 600; color: #7a5c20;
 }
 #title-bar h1 {
   font-size: 28px; font-weight: 600; letter-spacing: 8px;
   margin: 6px 0 2px; color: #2f4039;
   font-family: "Songti SC", "STSong", "SimSun", serif;
 }
-#title-bar .sub { font-size: 11px; letter-spacing: 2px; color: #7a8a82; }
+#title-bar .sub { font-size: 11px; letter-spacing: 2px; color: #5f6f67; }
 
 /* ---------------- 面包屑 / 分级 ---------------- */
 #level-bar {
@@ -102,9 +106,22 @@ body {
   font-family: inherit; font-size: 12px; color: #5a6b63;
   padding: 8px 12px; border-radius: 11px; transition: all .2s;
 }
+.theme-btn .ti { margin-right: 4px; font-size: 13px; line-height: 1; }
+.theme-btn:hover { background: rgba(63,154,134,.1); color: #2f806e; }
 .theme-btn.active {
   background: linear-gradient(135deg, #3f9a86, #2f806e);
   color: #fff;
+}
+.theme-btn:focus-visible,
+#toolbar button:focus-visible,
+.chip:focus-visible,
+.btn-primary:focus-visible,
+.btn-ghost:focus-visible,
+#enter-btn:focus-visible,
+#level-bar button:focus-visible,
+#zoom-ctrl button:focus-visible,
+#card-close:focus-visible {
+  outline: 2px solid #3f9a86; outline-offset: 2px;
 }
 
 /* ---------------- 侧栏 / 列表 ---------------- */
@@ -119,7 +136,7 @@ body {
   border-bottom: 1px solid rgba(70, 95, 85, .09);
 }
 .side-head b { font-size: 14px; letter-spacing: 2px; }
-.side-head .count { font-size: 11px; color: #8a988f; }
+.side-head .count { font-size: 11px; color: #6b7a72; }
 .filter-row {
   display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px;
   border-bottom: 1px solid rgba(70, 95, 85, .08);
@@ -137,25 +154,30 @@ body {
 #tab-districts.visible, #tab-spots.visible { display: block; }
 #tab-districts.visible { flex: 1; overflow-y: auto; padding: 8px 10px 12px; }
 .sec-title {
-  font-size: 10px; letter-spacing: 3px; color: #93a099;
+  font-size: 10px; letter-spacing: 3px; color: #6f7d75;
   padding: 10px 8px 6px;
+}
+.empty-tip {
+  padding: 24px 12px; text-align: center;
+  font-size: 12px; color: #6b7a72;
 }
 .item {
   display: flex; gap: 10px; align-items: flex-start;
   padding: 10px 10px; border-radius: 12px; cursor: pointer;
-  transition: background .15s;
+  transition: background .15s, transform .15s;
 }
-.item:hover, .item.active { background: rgba(63,154,134,.12); }
+.item:hover { background: rgba(63,154,134,.1); transform: translateX(2px); }
+.item.active { background: rgba(63,154,134,.14); }
 .item .no {
-  font-size: 10px; color: #9aa89f; min-width: 18px; padding-top: 2px;
+  font-size: 10px; color: #7a8880; min-width: 18px; padding-top: 2px;
 }
 .item .name { font-size: 13px; font-weight: 600; color: #2f4039; }
-.item .meta { font-size: 11px; color: #8a988f; margin-top: 2px; }
+.item .meta { font-size: 11px; color: #6b7a72; margin-top: 2px; }
 .item .swatch {
   width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex-shrink: 0;
 }
 .side-foot {
-  padding: 10px 14px; font-size: 10px; color: #8a988f;
+  padding: 10px 14px; font-size: 10px; color: #6b7a72;
   border-top: 1px solid rgba(70,95,85,.08);
 }
 
@@ -184,14 +206,14 @@ body {
 .card-hero.grass { background: linear-gradient(135deg, #b08930, #8a6a20); }
 .card-hero.leisure { background: linear-gradient(135deg, #4a7aaa, #2f5f8a); }
 .card-hero.nature { background: linear-gradient(135deg, #3f8f7a, #2f806e); }
-.card-no { padding: 14px 18px 0; font-size: 10px; letter-spacing: 2px; color: #8a988f; }
+.card-no { padding: 14px 18px 0; font-size: 10px; letter-spacing: 2px; color: #6b7a72; }
 #card h2 {
   padding: 4px 18px 0; font-size: 22px; letter-spacing: 2px; color: #2f4039;
   font-family: "Songti SC", "STSong", serif;
 }
-.card-en { padding: 4px 18px 0; font-size: 10px; letter-spacing: 1.5px; color: #8a988f; }
+.card-en { padding: 4px 18px 0; font-size: 10px; letter-spacing: 1.5px; color: #6b7a72; }
 .card-desc {
-  padding: 12px 18px; font-size: 12.5px; line-height: 1.7; color: #4a5750;
+  padding: 12px 18px; font-size: 12.5px; line-height: 1.7; color: #3d4a44;
 }
 .card-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 12px; }
 .card-chips span {
@@ -211,7 +233,7 @@ body {
   background: rgba(63,154,134,.1); color: #2f806e;
 }
 .card-meta {
-  padding: 8px 18px 0; font-size: 10px; color: #9aa89f;
+  padding: 8px 18px 0; font-size: 10px; color: #7a8880;
 }
 
 /* district card variant */
@@ -240,6 +262,7 @@ body {
   padding: 8px 14px; font-size: 11px; color: #5a6b63;
   border-radius: 999px; white-space: nowrap;
   transition: opacity .4s;
+  pointer-events: none;
 }
 #hint b { color: #2f806e; }
 
@@ -272,14 +295,25 @@ body {
   width: 168px; padding: 8px; display: none;
 }
 #minimap-wrap.visible { display: block; }
-.mm-title { font-size: 10px; letter-spacing: 2px; color: #8a988f; margin-bottom: 6px; }
+.mm-title { font-size: 10px; letter-spacing: 2px; color: #6b7a72; margin-bottom: 6px; }
 #minimap { width: 100%; height: 110px; border-radius: 10px; background: rgba(233,238,230,.8); }
 
 #footnote {
   position: fixed; left: 18px; bottom: 18px;
-  padding: 8px 12px; font-size: 10px; color: #8a988f; border-radius: 12px;
-  max-width: 280px;
+  padding: 8px 12px; font-size: 10px; color: #6b7a72; border-radius: 12px;
+  max-width: 320px; text-wrap: pretty;
 }
+
+#toast {
+  position: fixed; left: 50%; bottom: 118px; transform: translate(-50%, 8px);
+  padding: 9px 16px; border-radius: 999px;
+  background: rgba(32, 48, 42, 0.88); color: #fff;
+  font-size: 12px; letter-spacing: 1px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease, transform .25s ease;
+  z-index: 60;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* ---------------- 开场 ---------------- */
 #intro {
@@ -317,7 +351,7 @@ body {
   color: #fff; box-shadow: 0 10px 24px rgba(47,128,110,.35);
 }
 #enter-btn:hover { transform: translateY(-1px); }
-.intro-tip { margin-top: 14px; font-size: 11px; color: #8a988f; }
+.intro-tip { margin-top: 14px; font-size: 11px; color: #6b7a72; }
 
 /* ---------------- 移动端 ---------------- */
 @media (max-width: 768px) {
@@ -356,9 +390,9 @@ body {
   }
 
   #card {
-    top: calc(58px + env(safe-area-inset-top));
+    top: calc(74px + env(safe-area-inset-top));
     right: 10px; left: 10px; bottom: auto;
-    width: auto; max-height: 38vh;
+    width: auto; max-height: 40vh;
     border-radius: 16px;
     transform: translateY(0);
     overflow-y: auto;
@@ -401,6 +435,8 @@ body {
 }
 
 @media (max-width: 480px) {
-  #theme-switch .theme-btn { padding: 6px; font-size: 0; }
-  #theme-switch .theme-btn::first-letter { font-size: 14px; }
+  #theme-switch .theme-btn { padding: 7px 8px; font-size: 0; }
+  #theme-switch .theme-btn .ti { font-size: 15px; margin-right: 0; }
+  #theme-switch .theme-btn { min-width: 38px; min-height: 38px; display: inline-flex; align-items: center; justify-content: center; }
+  #toast { bottom: 96px; font-size: 11px; }
 }

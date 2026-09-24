@@ -110,16 +110,12 @@ async function run(label, contextOptions) {
   await page.waitForTimeout(1400);
   await page.screenshot({ path: path.join(OUT, `${label}-08-top.png`) });
 
-  // Photo export (ensure no throw)
-  const photoOk = await page.evaluate(() => {
-    try {
-      const c = document.querySelector('#canvas-wrap canvas');
-      return !!(c && c.toDataURL('image/png').startsWith('data:image/png'));
-    } catch (e) {
-      return false;
-    }
-  });
-  ok(`${label}: photo export`, photoOk);
+  // Photo export：点击工具栏拍照（会先 render 再 toDataURL）
+  const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+  await page.click('#tb-photo');
+  const download = await downloadPromise;
+  const photoOk = !!download;
+  ok(`${label}: photo export`, photoOk, download ? download.suggestedFilename() : 'no download');
 
   // Click on 3D canvas center to pick (may or may not hit)
   await page.mouse.click(contextOptions.viewport.width / 2, contextOptions.viewport.height / 2);

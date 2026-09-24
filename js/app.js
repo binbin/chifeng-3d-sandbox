@@ -17,55 +17,80 @@ var currentTheme = 'day';
 var PALETTES = {
   day: {
     _key: 'day',
-    skyTop: '#cfe4e0', skyBottom: '#f3f1e4',
-    fog: '#dfe8dc', fogNear: 420, fogFar: 1600,
-    hemiSky: '#dcece8', hemiGround: '#cfc79e', hemiI: 0.75,
-    sun: '#fff4dd', sunI: 1.0, amb: '#ffffff', ambI: 0.28,
+    skyTop: '#b7d4ce', skyBottom: '#f0ecd8',
+    fog: '#cfdcc8', fogNear: 560, fogFar: 2100,
+    hemiSky: '#c8e0d8', hemiGround: '#b8ad7c', hemiI: 0.38,
+    sun: '#fff0cc', sunI: 0.92, amb: '#ffffff', ambI: 0.07,
     sunPos: [120, 180, 80]
   },
   sunset: {
     _key: 'sunset',
-    skyTop: '#e9c7a6', skyBottom: '#f7e3c6',
-    fog: '#f1ddc4', fogNear: 400, fogFar: 1500,
-    hemiSky: '#f3d9bd', hemiGround: '#c9b385', hemiI: 0.7,
-    sun: '#ffb977', sunI: 1.1, amb: '#ffe6cc', ambI: 0.32,
-    sunPos: [-160, 60, 100]
+    skyTop: '#e8b888', skyBottom: '#f7e0c0',
+    fog: '#efd5b4', fogNear: 440, fogFar: 1750,
+    hemiSky: '#f0d0ae', hemiGround: '#c2a678', hemiI: 0.48,
+    sun: '#ff9d55', sunI: 1.05, amb: '#ffdfc0', ambI: 0.14,
+    sunPos: [-170, 55, 95]
   },
   night: {
     _key: 'night',
-    skyTop: '#0b1526', skyBottom: '#1c2f49',
-    fog: '#101d30', fogNear: 380, fogFar: 1400,
-    hemiSky: '#2a4060', hemiGround: '#1a2a26', hemiI: 0.5,
-    sun: '#9fc0ff', sunI: 0.45, amb: '#33507a', ambI: 0.4,
-    sunPos: [-100, 160, -80]
+    skyTop: '#08101f', skyBottom: '#1a2f4d',
+    fog: '#0d1828', fogNear: 460, fogFar: 1900,
+    hemiSky: '#3d5a82', hemiGround: '#243447', hemiI: 0.46,
+    sun: '#c4d8ff', sunI: 0.62, amb: '#4a6a96', ambI: 0.16,
+    sunPos: [-110, 175, -70]
   }
 };
 
 var hemiLight, sunLight, ambLight, skyMesh;
+var themeAnim = null;
+var orbitTimer = null;
 
 function init() {
+  try {
+    var testCanvas = document.createElement('canvas');
+    if (!(testCanvas.getContext('webgl') || testCanvas.getContext('experimental-webgl'))) {
+      throw new Error('no webgl');
+    }
+  } catch (err) {
+    var intro = document.getElementById('intro');
+    if (intro) {
+      var tip = intro.querySelector('.intro-tip');
+      if (tip) tip.textContent = '当前浏览器不支持 WebGL，请改用 Chrome / Edge 打开';
+      var btn = document.getElementById('enter-btn');
+      if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; }
+    }
+    return;
+  }
   scene = new THREE.Scene();
   var pal = PALETTES.day;
   scene.fog = new THREE.Fog(pal.fog, pal.fogNear, pal.fogFar);
 
-  camera = new THREE.PerspectiveCamera(42, window.innerWidth / window.innerHeight, 1, 3000);
+  camera = new THREE.PerspectiveCamera(42, window.innerWidth / Math.max(1, window.innerHeight), 1, 5000);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  // preserveDrawingBuffer 关闭以省带宽；拍照前手动 render 一帧即可导出
+  renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: false });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  if (renderer.outputEncoding !== undefined) renderer.outputEncoding = THREE.sRGBEncoding;
   document.getElementById('canvas-wrap').appendChild(renderer.domElement);
+  renderer.domElement.addEventListener('webglcontextlost', function (e) {
+    e.preventDefault();
+    fly = null;
+    UI.toast('渲染中断，请刷新页面');
+  });
+  renderer.domElement.addEventListener('webglcontextrestored', function () {
+    UI.toast('渲染已恢复');
+  });
 
   controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.minDistance = 12;
-  controls.maxDistance = 900;
+  controls.maxDistance = 1600;
   controls.minPolarAngle = 0.1;
   controls.maxPolarAngle = 1.45;
-  controls.autoRotateSpeed = 0.55;
+  controls.autoRotateSpeed = 1.2;
   controls.screenSpacePanning = true;
 
   raycaster = new THREE.Raycaster();
@@ -99,14 +124,15 @@ function buildLights() {
   sunLight.position.set(120, 180, 80);
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(1024, 1024);
-  var s = 280, sh = sunLight.shadow.camera;
-  sh.left = -s; sh.right = s; sh.top = s; sh.bottom = -s; sh.near = 20; sh.far = 700;
+  // 覆盖全域约 850×900，偏远旗县也要有影子
+  var s = 560, sh = sunLight.shadow.camera;
+  sh.left = -s; sh.right = s; sh.top = s; sh.bottom = -s; sh.near = 20; sh.far = 900;
   sunLight.shadow.bias = -0.0008;
   scene.add(sunLight);
 }
 
 function buildSky() {
-  var geo = new THREE.SphereGeometry(1400, 24, 16);
+  var geo = new THREE.SphereGeometry(2800, 24, 16);
   var mat = new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, depthWrite: false });
   skyMesh = new THREE.Mesh(geo, mat);
   scene.add(skyMesh);
@@ -127,29 +153,75 @@ function paintSky(pal) {
   skyMesh.material.needsUpdate = true;
 }
 
+function captureThemeState() {
+  return {
+    fog: scene.fog.color.getHex(),
+    fogNear: scene.fog.near,
+    fogFar: scene.fog.far,
+    hemiSky: hemiLight.color.getHex(),
+    hemiGround: hemiLight.groundColor.getHex(),
+    hemiI: hemiLight.intensity,
+    sun: sunLight.color.getHex(),
+    sunI: sunLight.intensity,
+    sunPos: [sunLight.position.x, sunLight.position.y, sunLight.position.z],
+    amb: ambLight.color.getHex(),
+    ambI: ambLight.intensity
+  };
+}
+
 function setTheme(name) {
   var pal = PALETTES[name] || PALETTES.day;
   currentTheme = name;
-  scene.fog.color.set(pal.fog);
-  scene.fog.near = pal.fogNear;
-  scene.fog.far = pal.fogFar;
-  hemiLight.color.set(pal.hemiSky);
-  hemiLight.groundColor.set(pal.hemiGround);
-  hemiLight.intensity = pal.hemiI;
-  sunLight.color.set(pal.sun);
-  sunLight.intensity = pal.sunI;
-  sunLight.position.set(pal.sunPos[0], pal.sunPos[1], pal.sunPos[2]);
-  ambLight.color.set(pal.amb);
-  ambLight.intensity = pal.ambI;
+  // 天空贴图先切，避免开场动画期间无贴图；灯光再插值过渡
   paintSky(pal);
+  themeAnim = { t: 0, dur: 0.55, from: captureThemeState(), pal: pal };
   World.setTheme(pal);
   document.body.style.background = pal.skyBottom;
 }
 
+function updateThemeAnim(dt) {
+  if (!themeAnim) return;
+  themeAnim.t += dt / themeAnim.dur;
+  var t = Math.min(1, themeAnim.t);
+  var e = t * t * (3 - 2 * t);
+  var from = themeAnim.from, pal = themeAnim.pal;
+  scene.fog.color.lerpColors(new THREE.Color(from.fog), new THREE.Color(pal.fog), e);
+  scene.fog.near = from.fogNear + (pal.fogNear - from.fogNear) * e;
+  scene.fog.far = from.fogFar + (pal.fogFar - from.fogFar) * e;
+  hemiLight.color.lerpColors(new THREE.Color(from.hemiSky), new THREE.Color(pal.hemiSky), e);
+  hemiLight.groundColor.lerpColors(new THREE.Color(from.hemiGround), new THREE.Color(pal.hemiGround), e);
+  hemiLight.intensity = from.hemiI + (pal.hemiI - from.hemiI) * e;
+  sunLight.color.lerpColors(new THREE.Color(from.sun), new THREE.Color(pal.sun), e);
+  sunLight.intensity = from.sunI + (pal.sunI - from.sunI) * e;
+  sunLight.position.set(
+    from.sunPos[0] + (pal.sunPos[0] - from.sunPos[0]) * e,
+    from.sunPos[1] + (pal.sunPos[1] - from.sunPos[1]) * e,
+    from.sunPos[2] + (pal.sunPos[2] - from.sunPos[2]) * e
+  );
+  ambLight.color.lerpColors(new THREE.Color(from.amb), new THREE.Color(pal.amb), e);
+  ambLight.intensity = from.ambI + (pal.ambI - from.ambI) * e;
+  if (t >= 1) {
+    paintSky(pal);
+    themeAnim = null;
+  }
+}
+
+function clearOrbitTimer() {
+  if (orbitTimer) {
+    clearTimeout(orbitTimer);
+    orbitTimer = null;
+  }
+}
+
 function flyTo(pos, target, duration, arc) {
+  clearOrbitTimer();
+  var dist = camera.position.distanceTo(pos);
+  var base = duration || 1.4;
+  // 时长随距离伸缩：短跳利落、长距从容
+  var dur = Math.max(0.55, Math.min(2.4, base * (0.55 + Math.min(1.5, dist / 220))));
   fly = {
     t: 0,
-    dur: duration || 1.4,
+    dur: dur,
     fromPos: camera.position.clone(),
     toPos: pos.clone(),
     fromT: controls.target.clone(),
@@ -158,6 +230,7 @@ function flyTo(pos, target, duration, arc) {
   };
   controls.autoRotate = false;
   autoOrbit = false;
+  UI.setToolbarActive('tb-orbit', false);
 }
 
 function updateFly(dt) {
@@ -179,6 +252,7 @@ function gotoCity() {
   World.highlightDistrict(null);
   flyTo(overviewCam.pos, overviewCam.target, 1.6, 0.1);
   tourOn = false;
+  UI.setToolbarActive('tb-tour', false);
 }
 
 function gotoDistrict(adcode) {
@@ -203,9 +277,17 @@ function gotoSpot(id) {
 
 function bindUI() {
   UI.on('enter', function () {
-    flyTo(overviewCam.pos, overviewCam.target, 2.0, 0.05);
-    setTimeout(function () { UI.setHintVisible(true); }, 500);
-    setTimeout(function () { UI.setHintVisible(false); }, 6000);
+    // 开场：先退到高远处，再俯冲到全景，避免「点进入无变化」
+    var start = new THREE.Vector3(
+      overviewCam.pos.x + 80,
+      overviewCam.pos.y + 120,
+      overviewCam.pos.z + 140
+    );
+    camera.position.copy(start);
+    controls.target.copy(overviewCam.target);
+    flyTo(overviewCam.pos, overviewCam.target, 2.2, 0.06);
+    setTimeout(function () { UI.setHintVisible(true); }, 700);
+    setTimeout(function () { UI.setHintVisible(false); }, 6500);
     if (World.isMobile()) UI.openDistrictListTab();
   });
   UI.on('selectDistrict', gotoDistrict);
@@ -231,23 +313,35 @@ function bindUI() {
     var n = World.getSpotNode(id);
     if (!n) return;
     controls.target.copy(n.anchor);
-    var d = 14;
+    var d = 22;
     var ang = Math.atan2(camera.position.z - n.anchor.z, camera.position.x - n.anchor.x);
     flyTo(
-      new THREE.Vector3(n.anchor.x + Math.cos(ang) * d, n.anchor.y + 8, n.anchor.z + Math.sin(ang) * d),
+      new THREE.Vector3(n.anchor.x + Math.cos(ang) * d, n.anchor.y + 11, n.anchor.z + Math.sin(ang) * d),
       n.anchor, 1.0, 0
     );
-    setTimeout(function () { controls.autoRotate = true; autoOrbit = true; }, 1100);
+    clearOrbitTimer();
+    orbitTimer = setTimeout(function () {
+      orbitTimer = null;
+      controls.autoRotate = true;
+      autoOrbit = true;
+      UI.setToolbarActive('tb-orbit', true);
+    }, 1100);
   });
   UI.on('autoOrbit', function () {
     autoOrbit = !autoOrbit;
     controls.autoRotate = autoOrbit;
+    UI.setToolbarActive('tb-orbit', autoOrbit);
   });
   UI.on('tour', function () {
     tourOn = !tourOn;
     tourTimer = 0;
     tourIdx = 0;
-    if (!tourOn) controls.autoRotate = false;
+    UI.setToolbarActive('tb-tour', tourOn);
+    if (!tourOn) {
+      controls.autoRotate = false;
+      autoOrbit = false;
+      UI.setToolbarActive('tb-orbit', false);
+    }
   });
   UI.on('topView', function () {
     flyTo(overviewCam.top, overviewCam.target, 1.5, 0.05);
@@ -257,34 +351,53 @@ function bindUI() {
     var len = dir.length() * (1 + delta);
     len = Math.max(controls.minDistance, Math.min(controls.maxDistance, len));
     dir.setLength(len);
-    camera.position.copy(controls.target).add(dir);
+    flyTo(controls.target.clone().add(dir), controls.target.clone(), 0.35, 0);
   });
   UI.on('photo', function () {
     try {
+      renderer.render(scene, camera);
       var url = renderer.domElement.toDataURL('image/png');
       var a = document.createElement('a');
       a.href = url;
       a.download = 'chifeng-sandbox.png';
       a.click();
+      UI.toast('照片已导出');
     } catch (e) {
       console.warn('photo failed', e);
+      UI.toast('导出失败，请重试');
     }
   });
   UI.on('fullscreen', function () {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen && document.documentElement.requestFullscreen();
-    } else if (document.exitFullscreen) {
-      document.exitFullscreen();
+    try {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+        return;
+      }
+      var el = document.documentElement;
+      var req = el.requestFullscreen || el.webkitRequestFullscreen;
+      if (!req) {
+        UI.toast('当前浏览器不支持全屏');
+        return;
+      }
+      var p = req.call(el);
+      if (p && p.catch) p.catch(function () { UI.toast('全屏不可用'); });
+    } catch (e) {
+      UI.toast('全屏不可用');
     }
   });
 }
 
 function bindPointer() {
   var el = renderer.domElement;
+  var activePointers = 0;
   el.addEventListener('pointerdown', function (e) {
+    fly = null; // 用户接管相机，中断飞行
+    activePointers++;
     pointerDown = { x: e.clientX, y: e.clientY };
     pointerMoved = false;
+    if (activePointers > 1) pointerMoved = true;
   });
+  el.addEventListener('wheel', function () { fly = null; }, { passive: true });
   el.addEventListener('pointermove', function (e) {
     if (pointerDown) {
       var dx = e.clientX - pointerDown.x, dy = e.clientY - pointerDown.y;
@@ -292,9 +405,14 @@ function bindPointer() {
     }
   });
   el.addEventListener('pointerup', function (e) {
-    if (pointerMoved) { pointerDown = null; return; }
+    activePointers = Math.max(0, activePointers - 1);
+    if (pointerMoved || activePointers > 0) { pointerDown = null; return; }
     pointerDown = null;
     pick(e.clientX, e.clientY);
+  });
+  el.addEventListener('pointercancel', function () {
+    activePointers = Math.max(0, activePointers - 1);
+    pointerDown = null;
   });
 }
 
@@ -321,33 +439,47 @@ function pick(cx, cy) {
 
 function updateTour(dt) {
   if (!tourOn) return;
-  tourTimer += dt;
   if (fly) return;
-  if (tourTimer < 3.5) return;
+  tourTimer += dt;
+  if (tourTimer < 3.8) return;
   tourTimer = 0;
   var list = SPOTS;
   if (UI.getState().adcode) {
     list = spotsByAdcode(UI.getState().adcode);
     if (!list.length) list = SPOTS;
   }
+  if (!list.length) {
+    tourOn = false;
+    UI.setToolbarActive('tb-tour', false);
+    return;
+  }
+  gotoSpot(list[tourIdx % list.length].id);
   tourIdx = (tourIdx + 1) % list.length;
-  gotoSpot(list[tourIdx].id);
 }
 
+var resizeTimer = null;
 function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(function () {
+    var w = window.innerWidth || 1;
+    var h = window.innerHeight || 1;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }, 80);
 }
 
 function animate() {
   requestAnimationFrame(animate);
   var dt = Math.min(0.05, clock.getDelta());
   updateFly(dt);
+  updateThemeAnim(dt);
   updateTour(dt);
   controls.update();
+  // 天空球跟随相机，拉远不穿帮
+  if (skyMesh) skyMesh.position.copy(camera.position);
   var lvl = UI.getState().level;
-  World.updateLabels(camera, lvl);
+  World.updateLabels(camera, lvl, UI.getState().adcode);
   // 指北针
   var needle = document.getElementById('compass-needle');
   if (needle) {
